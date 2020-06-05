@@ -6,11 +6,22 @@ def read_ann(ann):
         for line in f:
             if line[0] == 'T':
                 sline = line.split()
-                if ';' in sline[3]:
-                    print('Skipped non-contiguous entity:', ' '.join(sline))
-                else:
-                    e = (sline[1], int(sline[2]), int(sline[3]))
-                    entities.append(e)
-        
-        sorted_entities = sorted(entities, key=lambda e: e[1])
+                ranges = []
+                n = 3
+                i = sline[2]
+                j = sline[3]
+                while ';' in j:
+                    j, i2 = sline[n].split(';')
+                    ranges.append((int(i), int(j)))
+                    i = i2
+                    j = sline[n+1]
+                    n += 1
+                ranges.append((int(i), int(j)))
+
+                # sort ranges
+                sorted_ranges = sorted(ranges, key=lambda r: r[0])
+                e = (sline[1], sorted_ranges)
+                entities.append(e)
+
+        sorted_entities = sorted(entities, key=lambda e: e[1][0][0])
         return sorted_entities
