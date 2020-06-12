@@ -2,6 +2,12 @@ from ann import read_ann
 
 
 def overlapping(predicted, reference):
+    """Overlappings between predicted and reference entities.
+    Reference and predicted data may have internally overlapping entities.
+
+    - false positive overlappings are allowed, the matching step fixes this.
+    - sorting by i and then j is assumed.
+    """
     n = 0  # index for reference entities
     matches = []
     insertions = []  # false positives (in predicted)
@@ -9,21 +15,16 @@ def overlapping(predicted, reference):
     for m, p in enumerate(predicted):
         ms = []
         end = False
-        while not end and n < len(reference):
-            r = reference[n]
+        n2 = n
+        while not end and n2 < len(reference):
+            r = reference[n2]
             if before(r, p):
-                deletions.append(n)
+                deletions.append(n2)
+                n2 += 1  # n will advance also
                 n += 1
             elif overlaps(r, p):
-                ms.append(n)
-                if r[-1] < p[-1]:
-                    # r ends before p: jr < jp
-                    # advance to next r
-                    n += 1
-                else:
-                    # r ends after p: jr >= jp
-                    # r may overlap also with next p
-                    end = True
+                ms.append(n2)
+                n2 += 1
             else:
                 assert after(r, p)
                 end = True
@@ -53,18 +54,27 @@ def after(r, p):
     return jp <= ir
 
 
-def jaccard(r, p):
-    ir, jr = r[-2:]
-    ip, jp = p[-2:]
+def jaccard(rs, ps):
+    if isinstance(rs, tuple):
+        rs = [rs]
+    if isinstance(ps, tuple):
+        ps = [ps]
+    lr = sum(j - i for i, j in rs)
+    lp = sum(j - i for i, j in ps)
 
-    ov = min(jr, jp) - max(ir, ip)
-    lr = jr - ir
-    lp = jp - ip
+    # XXX: there is for sure a more efficient version
+    ov = 0
+    for ir, jr in rs:
+        for ip, jp in ps:
+            ov += max(min(jr, jp) - max(ir, ip), 0)
+
     return float(ov) / float(lr + lp - ov)
 
 
 def match(predicted, reference):
-    overlappings, insertions, deletions = overlapping(predicted, reference)
+    pred2 = [(e[1][0][0], e[1][-1][1]) for e in predicted]
+    ref2 = [(e[1][0][0], e[1][-1][1]) for e in reference]
+    overlappings, insertions, deletions = overlapping(pred2, ref2)
 
     matches = []
     scores = []
@@ -74,7 +84,7 @@ def match(predicted, reference):
         max_i = -1
         for i in set(ovs) - matched:
             r = reference[i]
-            sim = jaccard(r, p)
+            sim = jaccard(r[1], p[1])
             if sim > max_sim:
                 # XXX: what if there are ties?
                 max_sim = sim
