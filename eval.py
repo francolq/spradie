@@ -2,9 +2,8 @@ from ann import read_ann
 
 
 def overlapping(predicted, reference):
-    """Overlappings between predicted and reference entities.
-    Reference and predicted data may have internally overlapping entities.
-
+    """Version 2: entities may internally overlap. it's a mess.
+    
     - false positive overlappings are allowed, the matching step fixes this.
     - sorting by i and then j is assumed.
     """
@@ -32,7 +31,7 @@ def overlapping(predicted, reference):
         matches.append(ms)
         if ms == []:
             insertions.append(m)
-
+    
     return matches, insertions, deletions
 
 
@@ -61,7 +60,7 @@ def jaccard(rs, ps):
         ps = [ps]
     lr = sum(j - i for i, j in rs)
     lp = sum(j - i for i, j in ps)
-
+    
     # XXX: there is for sure a more efficient version
     ov = 0
     for ir, jr in rs:
@@ -93,7 +92,7 @@ def match(predicted, reference):
         matches.append(max_i)
         scores.append(max_sim)
         matched.add(max_i)
-
+    
     return matches, scores
 
 
