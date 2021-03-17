@@ -1,6 +1,15 @@
 
 
 def read_ann(ann):
+    """Read an annotation file.
+
+    Input:
+    ann -- a filename
+
+    Output:
+    entities -- a list of pairs (type, ranges) where type is the entity type and
+    ranges is a list of pairs (i, j),
+    """
     with open(ann) as f:
         entities = []
         for line in f:

@@ -2,10 +2,20 @@ from ann import read_ann
 
 
 def overlapping(predicted, reference):
-    """Version 2: entities may internally overlap. it's a mess.
-    
-    - false positive overlappings are allowed, the matching step fixes this.
-    - sorting by i and then j is assumed.
+    """Compute overlappings between predicted and reference sets.
+    Entities in the same set may overlap (it's a bit messy).
+
+    Input:
+    predicted -- list of pairs (i, j), sorted by i and then by j
+    reference -- list of pairs (i, j), sorted by i and then by j
+
+    Output: 3-uple (matches, insertions, deletions) where
+    matches -- for each predicted entity, list of overlapping reference entities
+    (list of list of indexes)
+    insertions -- predicted entities not overlapping with any reference entity
+    (list of indexes)
+    deletions -- reference entities not overlapping with any prediction
+    (list of indexes)
     """
     n = 0  # index for reference entities
     matches = []
@@ -70,11 +80,17 @@ def jaccard(rs, ps):
     return float(ov) / float(lr + lp - ov)
 
 
-def match(predicted, reference):
-    pred2 = [(e[1][0][0], e[1][-1][1]) for e in predicted]
-    ref2 = [(e[1][0][0], e[1][-1][1]) for e in reference]
-    overlappings, insertions, deletions = overlapping(pred2, ref2)
+def match(predicted, reference, overlappings):
+    """
+    Input:
+    predicted -- list of predicted entities as returned by read_ann
+    reference -- list of reference entities as returned by read_ann
+    overlappings -- list of overlappings as returned by overlapping
 
+    Output: a pair (matches, scores) where
+    matches -- for each predicted entity, the best matching reference entity (an index)
+    scores -- for each predicted entity, the score for the best matching reference entity (a Jaccard Index)
+    """
     matches = []
     scores = []
     matched = set()
@@ -85,7 +101,7 @@ def match(predicted, reference):
             r = reference[i]
             sim = jaccard(r[1], p[1])
             if sim > max_sim:
-                # XXX: what if there are ties?
+                # if there are ties, keep the first one
                 max_sim = sim
                 max_i = i
 
@@ -97,18 +113,44 @@ def match(predicted, reference):
 
 
 def eval(reference, predicted):
-    matches, scores = match(predicted, reference)
+    # convert entities to the format expected by the overlapping function
+    pred2 = [(e[1][0][0], e[1][-1][1]) for e in predicted]
+    ref2 = [(e[1][0][0], e[1][-1][1]) for e in reference]
+    overlappings, insertions, deletions = overlapping(pred2, ref2)
+
+    # Lentient Precision, Recall and F1
+    matches, scores = match(predicted, reference, overlappings)
     m = sum(scores)
-    if len(predicted) > 0.0:
+    if len(predicted) > 0:
         precision = m / len(predicted)
     else:
         precision = 0.0
-    if len(reference) > 0.0:
+    if len(reference) > 0:
         recall = m / len(reference)
     else:
         recall = 0.0
+    if precision > 0.0 and recall > 0.0:
+        f1 = 2 * precision * recall / (precision + recall)
+    else:
+        f1 = 0.0
     print(f'Precision: {precision} ({m} / {len(predicted)})')
     print(f'Recall: {recall} ({m} / {len(reference)})')
+    print(f'F1: {f1}')
+
+    # Slot Error Rate (SER)
+    substitutions = [s for s in scores if s > 0.0 and s < 1.0]
+    subs = len(substitutions)
+    ins = len(insertions)
+    dels = len(deletions)
+    ser_num = subs + ins + dels
+    if len(reference) > 0:
+        ser = float(ser_num) / len(reference)
+    else:
+        ser = float('nan')
+    print(f'Substitutions: {subs}')
+    print(f'Insertions: {ins}')
+    print(f'Deletions: {dels}')
+    print(f'SER: {ser} ({ser_num} / {len(reference)})')
 
 
 if __name__ == '__main__':
