@@ -7,7 +7,8 @@ Evaluation code for the SpRadIE challenge.
 
 ## Usage
 
-```python eval.py <source.txt> <reference.ann> <predicted.ann> [<entity_type>]
+```bash
+python eval.py <source.txt> <reference.ann> <predicted.ann> [<entity_type>]
 ```
 
 The entity type is optional. If not given, results are printed for all entity types.
