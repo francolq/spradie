@@ -1,6 +1,23 @@
 from ann import read_ann
 
 
+def prec_rec_f1(score, ref, pred):
+    if pred > 0:
+        precision = score / pred
+    else:
+        precision = 0.0
+    if ref > 0:
+        recall = score / ref
+    else:
+        recall = 0.0
+    if precision > 0.0 and recall > 0.0:
+        f1 = 2 * precision * recall / (precision + recall)
+    else:
+        f1 = 0.0
+
+    return precision, recall, f1
+
+
 def overlapping(predicted, reference):
     """Compute overlappings between predicted and reference sets.
     Entities in the same set may overlap (it's a bit messy).
@@ -41,7 +58,7 @@ def overlapping(predicted, reference):
         matches.append(ms)
         if ms == []:
             insertions.append(m)
-    
+
     return matches, insertions, deletions
 
 
@@ -70,7 +87,7 @@ def jaccard(rs, ps):
         ps = [ps]
     lr = sum(j - i for i, j in rs)
     lp = sum(j - i for i, j in ps)
-    
+
     # XXX: there is for sure a more efficient version
     ov = 0
     for ir, jr in rs:
@@ -108,7 +125,7 @@ def match(predicted, reference, overlappings):
         matches.append(max_i)
         scores.append(max_sim)
         matched.add(max_i)
-    
+
     return matches, scores
 
 
@@ -120,22 +137,18 @@ def eval(reference, predicted):
 
     # Lentient Precision, Recall and F1
     matches, scores = match(predicted, reference, overlappings)
-    m = sum(scores)
-    if len(predicted) > 0:
-        precision = m / len(predicted)
-    else:
-        precision = 0.0
-    if len(reference) > 0:
-        recall = m / len(reference)
-    else:
-        recall = 0.0
-    if precision > 0.0 and recall > 0.0:
-        f1 = 2 * precision * recall / (precision + recall)
-    else:
-        f1 = 0.0
-    print(f'Precision: {precision} ({m} / {len(predicted)})')
-    print(f'Recall: {recall} ({m} / {len(reference)})')
-    print(f'F1: {f1}')
+    lenient = sum(scores)
+    precision, recall, f1 = prec_rec_f1(lenient, len(reference), len(predicted))
+    print(f'Lenient precision: {precision} ({lenient} / {len(predicted)})')
+    print(f'Lenient recall: {recall} ({lenient} / {len(reference)})')
+    print(f'Lenient F1: {f1}')
+
+    # Exact Precision, Recall and F1
+    exact = len([s for s in scores if s == 1.0])
+    precision, recall, f1 = prec_rec_f1(exact, len(reference), len(predicted))
+    print(f'Exact precision: {precision} ({exact} / {len(predicted)})')
+    print(f'Exact recall: {recall} ({exact} / {len(reference)})')
+    print(f'Exact F1: {f1}')
 
     # Slot Error Rate (SER)
     substitutions = [s for s in scores if s > 0.0 and s < 1.0]
@@ -152,6 +165,8 @@ def eval(reference, predicted):
     print(f'Deletions: {dels}')
     print(f'SER: {ser} ({ser_num} / {len(reference)})')
 
+    return scores
+
 
 if __name__ == '__main__':
     import sys
@@ -163,16 +178,38 @@ if __name__ == '__main__':
             etypes = [argv[4]]
         else:
             etypes = [
+                'Abbreviation',
                 'Anatomical_Entity',
-                'Location',
+                'ConditionalTemporal',
+                'Degree',
                 'Finding',
-                'Negation'
+                'Location',
+                'Measure',
+                'Negation',
+                'Type_of_measure',
+                'Uncertainty',
             ]
         ref = read_ann(argv[2])
         pred = read_ann(argv[3])
+        scores = []
+        total_ref, total_pred = 0, 0
         for etype in etypes:
             print('Entity:', etype)
             eref = [r for r in ref if r[0] == etype]
             epred = [p for p in pred if p[0] == etype]
-            eval(eref, epred)
+            scores += eval(eref, epred)
+            total_ref += len(eref)
+            total_pred += len(epred)
             print('')
+
+        print(f'Global results (micro-averaged):')
+        lenient = sum(scores)
+        precision, recall, f1 = prec_rec_f1(lenient, total_ref, total_pred)
+        print(f'Lenient precision: {precision} ({lenient} / {total_pred})')
+        print(f'Lenient recall: {recall} ({lenient} / {total_ref})')
+        print(f'Lenient F1: {f1}')
+        exact = len([s for s in scores if s == 1.0])
+        precision, recall, f1 = prec_rec_f1(exact, total_ref, total_pred)
+        print(f'Exact precision: {precision} ({exact} / {total_pred})')
+        print(f'Exact recall: {recall} ({exact} / {total_ref})')
+        print(f'Exact F1: {f1}')
