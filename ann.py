@@ -7,7 +7,7 @@ def read_ann(ann):
     ann -- a filename
 
     Output:
-    entities -- a list of pairs (type, ranges) where type is the entity type and
+    entities -- a list of tuples (id, type, ranges) where type is the entity type and
     ranges is a list of pairs (i, j),
     """
     with open(ann) as f:
@@ -29,7 +29,7 @@ def read_ann(ann):
 
                 # sort ranges
                 sorted_ranges = sorted(ranges, key=lambda r: r[0])
-                e = (sline[1], sorted_ranges)
+                e = (sline[0], sline[1], sorted_ranges)
                 entities.append(e)
 
         sorted_entities = sorted(entities, key=lambda e: e[1][0][0])

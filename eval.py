@@ -1,3 +1,6 @@
+import sys
+import logging
+
 from ann import read_ann
 
 
@@ -116,11 +119,18 @@ def match(predicted, reference, overlappings):
         max_i = -1
         for i in set(ovs) - matched:
             r = reference[i]
-            sim = jaccard(r[1], p[1])
+            sim = jaccard(r[2], p[2])
             if sim > max_sim:
                 # if there are ties, keep the first one
                 max_sim = sim
                 max_i = i
+            elif sim == max_sim:
+                print('WARNING: tie in similarity')
+
+        if max_sim == 0.0:
+            logging.debug(f'{p[0]} unmatched')
+        else:
+            logging.debug(f'{p[0]} matched {reference[max_i][0]} with score {max_sim}')
 
         matches.append(max_i)
         scores.append(max_sim)
@@ -131,8 +141,8 @@ def match(predicted, reference, overlappings):
 
 def eval(reference, predicted):
     # convert entities to the format expected by the overlapping function
-    pred2 = [(e[1][0][0], e[1][-1][1]) for e in predicted]
-    ref2 = [(e[1][0][0], e[1][-1][1]) for e in reference]
+    pred2 = [(e[2][0][0], e[2][-1][1]) for e in predicted]
+    ref2 = [(e[2][0][0], e[2][-1][1]) for e in reference]
     overlappings, insertions, deletions = overlapping(pred2, ref2)
 
     # Lentient Precision, Recall and F1
@@ -169,7 +179,9 @@ def eval(reference, predicted):
 
 
 if __name__ == '__main__':
-    import sys
+    # uncomment for debugging output to stderr:
+    # logging.basicConfig(level=logging.DEBUG)
+
     argv = sys.argv
     if len(argv) < 4:
         print('Usage: python eval.py <source.txt> <reference.ann> <predicted.ann> [<entity_type>]')
@@ -191,12 +203,13 @@ if __name__ == '__main__':
             ]
         ref = read_ann(argv[2])
         pred = read_ann(argv[3])
+
         scores = []
         total_ref, total_pred = 0, 0
         for etype in etypes:
             print('Entity:', etype)
-            eref = [r for r in ref if r[0] == etype]
-            epred = [p for p in pred if p[0] == etype]
+            eref = [r for r in ref if r[1] == etype]
+            epred = [p for p in pred if p[1] == etype]
             scores += eval(eref, epred)
             total_ref += len(eref)
             total_pred += len(epred)
