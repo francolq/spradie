@@ -140,25 +140,38 @@ def match(predicted, reference, overlappings):
 
 
 def eval(reference, predicted):
+    """
+    Evaluate and return the scores used for lenient and exact
+    precision, recall and F1.
+
+    Input:
+    reference -- list of reference entities as returned by read_ann
+    predicted -- list of predicted entities as returned by read_ann
+    """
     # convert entities to the format expected by the overlapping function
     pred2 = [(e[2][0][0], e[2][-1][1]) for e in predicted]
     ref2 = [(e[2][0][0], e[2][-1][1]) for e in reference]
     overlappings, insertions, deletions = overlapping(pred2, ref2)
 
-    # Lentient Precision, Recall and F1
     matches, scores = match(predicted, reference, overlappings)
-    lenient = sum(scores)
-    precision, recall, f1 = prec_rec_f1(lenient, len(reference), len(predicted))
-    print(f'Lenient precision: {precision} ({lenient} / {len(predicted)})')
-    print(f'Lenient recall: {recall} ({lenient} / {len(reference)})')
-    print(f'Lenient F1: {f1}')
 
-    # Exact Precision, Recall and F1
-    exact = len([s for s in scores if s == 1.0])
-    precision, recall, f1 = prec_rec_f1(exact, len(reference), len(predicted))
-    print(f'Exact precision: {precision} ({exact} / {len(predicted)})')
-    print(f'Exact recall: {recall} ({exact} / {len(reference)})')
-    print(f'Exact F1: {f1}')
+    return scores
+
+
+def eval_ser(reference, predicted):
+    """
+    Evaluate and print the Slot Error Rate (SER).
+
+    Input:
+    reference -- list of reference entities as returned by read_ann
+    predicted -- list of predicted entities as returned by read_ann
+    """
+    # convert entities to the format expected by the overlapping function
+    pred2 = [(e[2][0][0], e[2][-1][1]) for e in predicted]
+    ref2 = [(e[2][0][0], e[2][-1][1]) for e in reference]
+    overlappings, insertions, deletions = overlapping(pred2, ref2)
+
+    matches, scores = match(predicted, reference, overlappings)
 
     # Slot Error Rate (SER)
     substitutions = [s for s in scores if s > 0.0 and s < 1.0]
@@ -204,24 +217,39 @@ if __name__ == '__main__':
         ref = read_ann(argv[2])
         pred = read_ann(argv[3])
 
-        scores = []
+        total_scores = []
         total_ref, total_pred = 0, 0
         for etype in etypes:
             print('Entity:', etype)
             eref = [r for r in ref if r[1] == etype]
             epred = [p for p in pred if p[1] == etype]
-            scores += eval(eref, epred)
+            scores = eval(eref, epred)
+
+            # Lentient Precision, Recall and F1
+            lenient = sum(scores)
+            precision, recall, f1 = prec_rec_f1(lenient, len(eref), len(epred))
+            print(f'Lenient precision: {precision} ({lenient} / {len(epred)})')
+            print(f'Lenient recall: {recall} ({lenient} / {len(eref)})')
+            print(f'Lenient F1: {f1}')
+            # Exact Precision, Recall and F1
+            exact = len([s for s in scores if s == 1.0])
+            precision, recall, f1 = prec_rec_f1(exact, len(eref), len(epred))
+            print(f'Exact precision: {precision} ({exact} / {len(epred)})')
+            print(f'Exact recall: {recall} ({exact} / {len(eref)})')
+            print(f'Exact F1: {f1}')
+
+            total_scores += scores
             total_ref += len(eref)
             total_pred += len(epred)
-            print('')
+            print()
 
         print(f'Global results (micro-averaged):')
-        lenient = sum(scores)
+        lenient = sum(total_scores)
         precision, recall, f1 = prec_rec_f1(lenient, total_ref, total_pred)
         print(f'Lenient precision: {precision} ({lenient} / {total_pred})')
         print(f'Lenient recall: {recall} ({lenient} / {total_ref})')
         print(f'Lenient F1: {f1}')
-        exact = len([s for s in scores if s == 1.0])
+        exact = len([s for s in total_scores if s == 1.0])
         precision, recall, f1 = prec_rec_f1(exact, total_ref, total_pred)
         print(f'Exact precision: {precision} ({exact} / {total_pred})')
         print(f'Exact recall: {recall} ({exact} / {total_ref})')
