@@ -125,7 +125,7 @@ def match(predicted, reference, overlappings):
                 max_sim = sim
                 max_i = i
             elif sim == max_sim:
-                print('WARNING: tie in similarity')
+                logging.debug('WARNING: tie in similarity')
 
         if max_sim == 0.0:
             logging.debug(f'{p[0]} unmatched')
@@ -148,12 +148,16 @@ def eval(reference, predicted):
     reference -- list of reference entities as returned by read_ann
     predicted -- list of predicted entities as returned by read_ann
     """
+    # sort by order of occurence
+    ref = sorted(reference, key=lambda x: (x[2][0][0], x[2][-1][1]))
+    pred = sorted(predicted, key=lambda x: (x[2][0][0], x[2][-1][1]))
+
     # convert entities to the format expected by the overlapping function
-    pred2 = [(e[2][0][0], e[2][-1][1]) for e in predicted]
-    ref2 = [(e[2][0][0], e[2][-1][1]) for e in reference]
+    ref2 = [(e[2][0][0], e[2][-1][1]) for e in ref]
+    pred2 = [(e[2][0][0], e[2][-1][1]) for e in pred]
     overlappings, insertions, deletions = overlapping(pred2, ref2)
 
-    matches, scores = match(predicted, reference, overlappings)
+    matches, scores = match(pred, ref, overlappings)
 
     return scores
 
